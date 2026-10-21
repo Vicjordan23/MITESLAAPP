@@ -13,47 +13,63 @@ from .prices import fetch_prices
 
 log = logging.getLogger("teslabot")
 cfg = None
+DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
 def _now() -> datetime:
     return datetime.now(ZoneInfo(TZ))
 
 
-def _fmt_hours(hours: list[datetime]) -> str:
-    """Agrupa horas consecutivas: 02:00-05:00, 14:00-15:00"""
+def _dia(d: datetime, now: datetime) -> str:
+    delta = (d.date() - now.date()).days
+    return {0: "hoy", 1: "mañana"}.get(delta, DIAS[d.weekday()])
+
+
+def _fmt_hours(hours: list[datetime], now: datetime | None = None) -> str:
+    """Agrupa horas consecutivas: 'hoy 22:00 → 02:00', 'mañana 14:00 → 15:00'."""
     if not hours:
         return "—"
+    now = now or _now()
     runs, start, prev = [], hours[0], hours[0]
     for h in hours[1:]:
         if h - prev != timedelta(hours=1):
             runs.append((start, prev)); start = h
         prev = h
     runs.append((start, prev))
-    return ", ".join(f"{a:%a %H:%M}-{b + timedelta(hours=1):%H:%M}" for a, b in runs)
+    return "\n".join(f"   • {_dia(a, now)} {a:%H:%M} → {b + timedelta(hours=1):%H:%M}" for a, b in runs)
+
+
+AYUDA = (
+    "👋 ¡Hola! Te ayudo a cargar el Tesla cuando la luz está más barata.\n\n"
+    "🔌 /cargar — dime cuánta batería tienes, cuánta quieres y a qué hora vas a coger el coche.\n"
+    "   Ejemplo: /cargar 30 80 07:30\n"
+    "   (tengo el 30%, quiero el 80% y salgo a las 7:30)\n\n"
+    "💶 /precios — el precio de la luz de hoy y mañana y las horas más baratas."
+)
 
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🚗 Comandos:\n"
-        "/precios — precios PVPC de hoy y mañana\n"
-        "/cargar <actual%> <objetivo%> <HH:MM> — cuándo conectar para estar listo a esa hora\n"
-        "   ej: /cargar 30 80 07:30"
-    )
+    await update.message.reply_text(AYUDA)
 
 
 async def precios(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     now = _now()
     prices = fetch_prices(cfg.esios_token, now.date())
     if not prices:
-        await update.message.reply_text("Aún no hay precios.")
+        await update.message.reply_text("Todavía no hay precios publicados.")
         return
-    lines = []
+    lines = ["💶 Precio de la luz (€ por kWh, ya con peajes y cargos)\n"]
     for day in sorted({h.date() for h in prices}):
         day_p = {h: p for h, p in prices.items() if h.date() == day}
         cheap = sorted(day_p.items(), key=lambda x: x[1])[:3]
+        dear = max(day_p.items(), key=lambda x: x[1])
         avg = sum(day_p.values()) / len(day_p)
-        lines.append(f"📅 {day:%d/%m}: media {avg:.3f} €/kWh\n   más baratas: " +
-                     ", ".join(f"{h:%H}h ({p:.3f})" for h, p in sorted(cheap)))
+        name = _dia(datetime.combine(day, time.min, ZoneInfo(TZ)), now)
+        lines.append(f"📅 {name.capitalize()} ({day:%d/%m}) — media {avg:.3f} €\n"
+                     f"   ✅ Más baratas: " + ", ".join(f"{h:%H}h ({p:.3f})" for h, p in sorted(cheap)) +
+                     f"\n   ❌ Más cara: {dear[0]:%H}h ({dear[1]:.3f})")
+    if now.date() + timedelta(days=1) not in {h.date() for h in prices}:
+        lines.append("\nℹ️ Los precios de mañana se publican sobre las 20:30.")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -63,23 +79,38 @@ async def cargar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         t = time.fromisoformat(hhmm)
         assert 0 <= cur <= 100 and 0 <= tgt <= 100
     except Exception:
-        await update.message.reply_text("Uso: /cargar 30 80 07:30")
+        await update.message.reply_text(
+            "Necesito tres datos separados por espacios:\n"
+            "1️⃣ batería que tienes ahora (%)\n2️⃣ batería que quieres (%)\n3️⃣ hora a la que lo cogerás\n\n"
+            "Ejemplo: /cargar 30 80 07:30")
         return
     now = _now()
     deadline = datetime.combine(now.date(), t, ZoneInfo(TZ))
     if deadline <= now:
         deadline += timedelta(days=1)
     prices = fetch_prices(cfg.esios_token, now.date())
-    plan = plan_charge(prices, now, deadline, cur, tgt, cfg.battery_kwh, cfg.charger_kw, cfg.efficiency)
-    if not plan.hours:
-        await update.message.reply_text("Ya tienes batería suficiente 👍" if plan.feasible else "Sin precios disponibles.")
+    plan = plan_charge(prices, now, deadline, cur, tgt, cfg.battery_kwh, cfg.car_kw, cfg.efficiency)
+    if tgt <= cur:
+        await update.message.reply_text(f"Ya tienes {cur}%, no hace falta cargar nada 👍")
         return
-    msg = (f"🔌 {cur}% → {tgt}% para las {deadline:%a %H:%M}\n"
-           f"Energía: {plan.kwh_needed:.1f} kWh · Coste ≈ {plan.cost:.2f} €\n"
-           f"Carga en: {_fmt_hours(plan.hours)}")
-    if not plan.feasible:
-        msg += "\n⚠️ No llegas al objetivo con los precios/horas disponibles (el precio de mañana sale ~20:30)."
-    await update.message.reply_text(msg)
+    if not prices:
+        await update.message.reply_text("Todavía no hay precios publicados.")
+        return
+    hours = len(plan.hours)
+    msg = [f"🚗 Quieres pasar del {cur}% al {tgt}% para el {_dia(deadline, now)} a las {deadline:%H:%M}.\n",
+           f"⚡ Necesitas {plan.kwh_needed:.1f} kWh. Con {cfg.car_kw:g} kW de carga son ≈ {plan.kwh_needed / cfg.car_kw:.1f} h.\n",
+           "🕒 Te conviene cargar en estas horas:", _fmt_hours(plan.hours, now),
+           f"\n💶 Coste estimado: {plan.cost:.2f} € (sin IVA ni impuestos)"]
+    saving = plan.cost_asap - plan.cost
+    if plan.covered and saving > 0.05:
+        msg.append(f"✨ Ahorras {saving:.2f} € frente a cargar ya mismo.")
+    if not plan.covered:
+        msg.append("\n⚠️ Aún no sé el precio de las horas hasta esa hora (los de mañana salen sobre las 20:30). "
+                   "Esto es provisional: vuelve a preguntarme después de las 20:30.")
+    elif not plan.feasible:
+        msg.append("\n⚠️ No da tiempo a llegar a ese porcentaje antes de la hora indicada. "
+                   "Te muestro lo máximo que puedes cargar.")
+    await update.message.reply_text("\n".join(msg))
 
 
 def main():

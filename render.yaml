@@ -13,3 +13,5 @@ services:
       - { key: WEBHOOK_SECRET, sync: false }
       - { key: BATTERY_KWH, value: "60" }
       - { key: CHARGER_KW, value: "7.4" }
+      - { key: CONTRACTED_KW, value: "4.4" }
+      - { key: HOUSE_KW, value: "1.0" }

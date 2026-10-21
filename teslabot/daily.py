@@ -21,7 +21,7 @@ def main():
         return
     cheap = sorted(h for h, _ in sorted(prices.items(), key=lambda x: x[1])[:6])
     avg = sum(prices.values()) / len(prices)
-    text = f"⚡ Mañana: media {avg:.3f} €/kWh. Horas más baratas: {_fmt_hours(cheap)}"
+    text = f"⚡ Precio de mañana: media {avg:.3f} €/kWh.\n🕒 Mejores horas para cargar:\n{_fmt_hours(cheap, now)}"
     httpx.post(f"https://api.telegram.org/bot{cfg.telegram_token}/sendMessage",
                json={"chat_id": cfg.chat_id, "text": text}, timeout=20).raise_for_status()
 

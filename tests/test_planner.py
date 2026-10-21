@@ -28,3 +28,10 @@ def test_deadline_respected_and_infeasible():
 def test_already_charged():
     plan = plan_charge(prices(), D, D + timedelta(hours=9), 80, 80, 60, 10, 1.0)
     assert plan.hours == [] and plan.feasible
+
+
+def test_coverage_and_asap():
+    plan = plan_charge(prices(), D, D + timedelta(hours=20), 30, 80, 60, 10, 1.0)
+    assert not plan.covered  # faltan precios hasta la hora límite
+    plan = plan_charge(prices(), D, D + timedelta(hours=9), 30, 80, 60, 10, 1.0)
+    assert plan.covered and plan.cost_asap > plan.cost
