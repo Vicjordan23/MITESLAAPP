@@ -50,3 +50,11 @@ def test_tax_factor_matches_invoice():
     assert abs(35.33 * 0.0511269632 - 1.81) < 0.01
     assert abs(37.94 * 0.21 - 7.97) < 0.01
     assert abs(TAX_FACTOR - 1.2709) < 0.001
+
+
+def test_fmt_hours_with_prices_and_table():
+    from teslabot.core import day_table, fmt_hours
+    pr = prices()
+    out = fmt_hours([D + timedelta(hours=4), D + timedelta(hours=5)], D, pr)
+    assert out.count("€/kWh") == 2 and "0.050" in out
+    assert "🟢" in day_table(pr, D.date(), D)

@@ -24,7 +24,7 @@ def plan_charge(prices: dict[datetime, float], now: datetime, deadline: datetime
     kwh = energy_needed(current, target, battery_kwh, efficiency)
     n_hours = math.ceil(kwh / charger_kw) if kwh > 0 else 0
     slot_end = lambda h: h + timedelta(hours=1)
-    candidates = [(p, h) for h, p in prices.items() if slot_end(h) > now and h < deadline]
+    candidates = [(p, h) for h, p in prices.items() if slot_end(h) > now and slot_end(h) <= deadline]
     chosen = sorted(candidates)[:n_hours]
     chosen.sort(key=lambda x: x[1])
     covered = bool(prices) and max(prices) + timedelta(hours=1) >= deadline

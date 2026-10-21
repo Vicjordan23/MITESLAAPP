@@ -10,6 +10,7 @@ from . import car, charger, core, store
 from . import config as cfg_mod
 from .config import TZ
 from .core import dia as _dia
+from .core import day_table
 from .core import fmt_hours as _fmt_hours
 from .core import now as _now
 from .planner import best_window, plan_charge
@@ -55,6 +56,13 @@ def _prices(days: int = 2):
     return fetch_prices(cfg.esios_token, _now().date(), days)
 
 
+def _safe_prices():
+    try:
+        return _prices()
+    except Exception:
+        return None
+
+
 def _allowed(update: Update) -> bool:
     return update.effective_chat is not None and update.effective_chat.id == cfg.chat_id
 
@@ -92,7 +100,7 @@ def plan_text(cur: int, tgt: int, deadline: datetime, now: datetime):
     msg = [f"🚗 Quieres pasar del {cur}% al {tgt}% para {_dia(deadline, now)} a las {deadline:%H:%M}.\n",
            f"⚡ Necesitas {plan.kwh_needed:.1f} kWh. Con {cfg.car_kw:g} kW de carga son ≈ {plan.kwh_needed / cfg.car_kw:.1f} h.",
            f"🛣 Añades ≈ {km:.0f} km de autonomía.\n",
-           "🕒 Te conviene cargar en estas horas:", _fmt_hours(plan.hours, now),
+           "🕒 Te conviene cargar en estas horas (precio de cada una):", _fmt_hours(plan.hours, now, prices),
            f"\n💶 Coste estimado: {plan.cost:.2f} € (precio base, sin impuestos)"]
     saving = plan.cost_asap - plan.cost
     if plan.covered and saving > 0.05:
@@ -177,7 +185,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def precios(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     _refresh()
-    await _show(update, prices_text(_now()), _kb([BACK]))
+    await _show(update, prices_text(_now()), _kb([[BTN("📋 Hoy por horas", callback_data="t|0"),
+                                                    BTN("📋 Mañana por horas", callback_data="t|1")], BACK]))
 
 
 async def cargar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -232,13 +241,21 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if k == "m":
             await _show(update, MENU_TEXT, MENU_KB)
         elif k == "p":
-            await _show(update, prices_text(now), _kb([BACK]))
+            await _show(update, prices_text(now), _kb([[BTN("📋 Hoy por horas", callback_data="t|0"),
+                                                         BTN("📋 Mañana por horas", callback_data="t|1")], BACK]))
+        elif k == "t":  # tabla hora a hora
+            day = now.date() + timedelta(days=int(a[0]))
+            other = "t|1" if a[0] == "0" else "t|0"
+            await _show(update, day_table(_prices(), day, now),
+                        _kb([[BTN("📋 Mañana" if a[0] == "0" else "📋 Hoy", callback_data=other)],
+                             [BTN("⬅️ Precios", callback_data="p")], BACK]))
         elif k == "n":
             prices = _prices()
             cheap = sorted(h for h, _ in sorted(((h, p) for h, p in prices.items() if h + timedelta(hours=1) > now),
                                               key=lambda x: x[1])[:5])
-            await _show(update, ("⏱ Las 5 horas más baratas desde ahora:\n" + _fmt_hours(cheap, now)) if cheap
-                        else "Sin precios.", _kb([BACK]))
+            await _show(update, ("⏱ Las 5 horas más baratas desde ahora:\n" + _fmt_hours(cheap, now, prices)) if cheap
+                        else "Sin precios.", _kb([[BTN("📋 Hoy por horas", callback_data="t|0"),
+                                                   BTN("📋 Mañana por horas", callback_data="t|1")], BACK]))
         elif k == "w":
             if not a:
                 await _show(update, "🧺 ¿Cuántas horas dura el aparato (lavadora, lavavajillas...)?",
@@ -323,7 +340,7 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 lines.append(f"\n📌 Carga programada: {plan['cur']}% → {plan['tgt']}% para "
                              f"{_dia(datetime.fromisoformat(plan['dl']), now)} {datetime.fromisoformat(plan['dl']):%H:%M}"
                              f"{' (provisional)' if plan.get('prov') else ''}\n"
-                             f"{_fmt_hours(sorted(core.plan_hours(plan)), now)}\n💶 ≈ {plan['cost']:.2f} €")
+                             f"{_fmt_hours(sorted(core.plan_hours(plan)), now, _safe_prices())}\n💶 ≈ {plan['cost']:.2f} €")
                 rows.append([BTN("🗑 Cancelar carga programada", callback_data="x")])
             else:
                 lines.append("\n📌 No hay ninguna carga programada.")

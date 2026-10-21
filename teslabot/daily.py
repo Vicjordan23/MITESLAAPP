@@ -26,7 +26,7 @@ def main():
     avg = sum(prices.values()) / len(prices)
     cheap = sorted(h for h, _ in sorted(prices.items(), key=lambda x: x[1])[:6])
     lines = [f"⚡ Precio de mañana: media {avg:.3f} €/kWh (sin impuestos).",
-             f"🕒 Mejores horas para cargar:\n{core.fmt_hours(cheap, now)}"]
+             f"🕒 Mejores horas para cargar (precio de cada una):\n{core.fmt_hours(cheap, now, prices)}"]
     if cfg.alerts:
         if avg <= cfg.alert_low:
             lines.insert(0, "🟢 ¡Mañana es un día BARATO! Buen momento para cargar a tope.")
@@ -43,7 +43,7 @@ def main():
             core.add_history(data, rec)
             store.save(cfg.telegram_token, cfg.chat_id, data)
             lines.append(f"\n📌 He actualizado tu carga programada con los precios definitivos:\n"
-                         f"{core.fmt_hours(sorted(core.plan_hours(rec)), now)}\nCoste ≈ {rec['cost']:.2f} €")
+                         f"{core.fmt_hours(sorted(core.plan_hours(rec)), now, all_prices)}\nCoste ≈ {rec['cost']:.2f} €")
     send(cfg, "\n".join(lines))
 
 
