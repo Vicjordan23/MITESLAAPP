@@ -14,14 +14,23 @@ REE_URL = "https://apidatos.ree.es/es/datos/mercados/precios-mercados-tiempo-rea
 
 
 def _fetch_ree_public(day: date, days: int) -> dict[datetime, float]:
+    """Un día por petición: si el día siguiente aún no está publicado la API responde error y se omite."""
     tz = ZoneInfo(TZ)
-    end = day + timedelta(days=days - 1)
-    r = httpx.get(REE_URL, params={"start_date": f"{day}T00:00", "end_date": f"{end}T23:59", "time_trunc": "hour"},
-                  headers={"Accept": "application/json", "User-Agent": "miteslaapp/1.0"}, timeout=20)
-    r.raise_for_status()
-    pvpc = next(i for i in r.json()["included"] if i["id"] == "1001")
-    return {datetime.fromisoformat(v["datetime"]).astimezone(tz): v["value"] / 1000
-            for v in pvpc["attributes"]["values"]}
+    out: dict[datetime, float] = {}
+    for i in range(days):
+        d = day + timedelta(days=i)
+        try:
+            r = httpx.get(REE_URL, params={"start_date": f"{d}T00:00", "end_date": f"{d}T23:59", "time_trunc": "hour"},
+                          headers={"Accept": "application/json", "User-Agent": "miteslaapp/1.0"}, timeout=20)
+            r.raise_for_status()
+            pvpc = next(x for x in r.json()["included"] if x["id"] == "1001")
+        except (httpx.HTTPError, StopIteration, KeyError):
+            if i == 0:
+                raise
+            continue
+        for v in pvpc["attributes"]["values"]:
+            out[datetime.fromisoformat(v["datetime"]).astimezone(tz)] = v["value"] / 1000
+    return out
 
 
 def _fetch_prices_raw(token: str, day: date, days: int = 2) -> dict[datetime, float]:
