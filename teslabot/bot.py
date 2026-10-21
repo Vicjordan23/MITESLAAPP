@@ -9,7 +9,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Cont
 from . import config as cfg_mod
 from .config import TZ
 from .planner import best_window, plan_charge
-from .prices import fetch_prices
+from .prices import fetch_real_prices
 
 log = logging.getLogger("teslabot")
 cfg = None
@@ -68,7 +68,7 @@ BACK = [BTN("⬅️ Menú", callback_data="m")]
 
 
 def _prices():
-    return fetch_prices(cfg.esios_token, _now().date())
+    return fetch_real_prices(cfg.esios_token, _now().date())
 
 
 def _allowed(update: Update) -> bool:
@@ -79,7 +79,7 @@ def prices_text(now: datetime) -> str:
     prices = _prices()
     if not prices:
         return "Todavía no hay precios publicados."
-    lines = ["💶 Precio de la luz (€ por kWh, ya con peajes y cargos)\n"]
+    lines = ["💶 Precio de la luz (€ por kWh, con peajes, cargos e impuestos: lo que pagas de verdad)\n"]
     for day in sorted({h.date() for h in prices}):
         day_p = {h: p for h, p in prices.items() if h.date() == day}
         cheap = sorted(day_p.items(), key=lambda x: x[1])[:3]
@@ -103,8 +103,9 @@ def plan_text(cur: int, tgt: int, deadline: datetime, now: datetime) -> str:
     plan = plan_charge(prices, now, deadline, cur, tgt, cfg.battery_kwh, cfg.car_kw, cfg.efficiency)
     msg = [f"🚗 Quieres pasar del {cur}% al {tgt}% para {_dia(deadline, now)} a las {deadline:%H:%M}.\n",
            f"⚡ Necesitas {plan.kwh_needed:.1f} kWh. Con {cfg.car_kw:g} kW de carga son ≈ {plan.kwh_needed / cfg.car_kw:.1f} h.\n",
+           f"🛣 Añades ≈ {(tgt - cur) / 100 * cfg.battery_kwh / cfg.kwh_per_100km * 100:.0f} km de autonomía.\n",
            "🕒 Te conviene cargar en estas horas:", _fmt_hours(plan.hours, now),
-           f"\n💶 Coste estimado: {plan.cost:.2f} € (sin IVA ni impuestos)"]
+           f"\n💶 Coste estimado: {plan.cost:.2f} € (con IVA e impuesto eléctrico, solo energía)"]
     saving = plan.cost_asap - plan.cost
     if plan.covered and saving > 0.05:
         msg.append(f"✨ Ahorras {saving:.2f} € frente a cargar ya mismo.")

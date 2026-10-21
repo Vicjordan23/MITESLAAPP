@@ -2,6 +2,9 @@ import os
 from dataclasses import dataclass
 
 TZ = "Europe/Madrid"
+IMPUESTO_ELECTRICIDAD = 0.0511269632  # sobre energía+potencia
+IVA = 0.21
+TAX_FACTOR = (1 + IMPUESTO_ELECTRICIDAD) * (1 + IVA)  # coste real por kWh = precio PVPC * esto
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,7 @@ class Config:
     webhook_secret: str = ""
     contracted_kw: float = 4.4
     house_kw: float = 1.0
+    kwh_per_100km: float = 15.0
 
     @property
     def car_kw(self) -> float:
@@ -33,4 +37,5 @@ def load() -> Config:
         webhook_secret=os.getenv("WEBHOOK_SECRET", ""),
         contracted_kw=float(os.getenv("CONTRACTED_KW", "4.4")),
         house_kw=float(os.getenv("HOUSE_KW", "1.0")),
+        kwh_per_100km=float(os.getenv("KWH_PER_100KM", "15")),
     )

@@ -42,3 +42,11 @@ def test_best_window():
     start, avg = best_window(prices(), D, 2)
     assert start == D + timedelta(hours=4) and round(avg, 2) == 0.05
     assert best_window(prices(), D, 50) is None
+
+
+def test_tax_factor_matches_invoice():
+    from teslabot.config import TAX_FACTOR
+    # factura: base 35.33 -> IEE 1.81; IVA sobre (35.33+1.81+0.80)=37.94 -> 7.97
+    assert abs(35.33 * 0.0511269632 - 1.81) < 0.01
+    assert abs(37.94 * 0.21 - 7.97) < 0.01
+    assert abs(TAX_FACTOR - 1.2709) < 0.001
