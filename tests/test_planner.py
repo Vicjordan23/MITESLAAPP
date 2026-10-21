@@ -35,3 +35,10 @@ def test_coverage_and_asap():
     assert not plan.covered  # faltan precios hasta la hora límite
     plan = plan_charge(prices(), D, D + timedelta(hours=9), 30, 80, 60, 10, 1.0)
     assert plan.covered and plan.cost_asap > plan.cost
+
+
+def test_best_window():
+    from teslabot.planner import best_window
+    start, avg = best_window(prices(), D, 2)
+    assert start == D + timedelta(hours=4) and round(avg, 2) == 0.05
+    assert best_window(prices(), D, 50) is None

@@ -40,3 +40,19 @@ def _cost(hour_prices: list[float], kwh: float, charger_kw: float) -> float:
         cost += take * p
         left -= take
     return cost
+
+
+def best_window(prices: dict[datetime, float], now: datetime, hours: int, horizon: int = 24):
+    """Ventana de `hours` horas seguidas más barata en las próximas `horizon` horas.
+    Devuelve (inicio, precio_medio) o None si no hay datos suficientes."""
+    best = None
+    for start in sorted(prices):
+        if start + timedelta(hours=1) <= now or start > now + timedelta(hours=horizon):
+            continue
+        slots = [start + timedelta(hours=i) for i in range(hours)]
+        if not all(s in prices for s in slots):
+            continue
+        avg = sum(prices[s] for s in slots) / hours
+        if best is None or avg < best[1]:
+            best = (start, avg)
+    return best

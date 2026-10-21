@@ -18,3 +18,6 @@ cp .env.example .env   # rellenar y exportar las variables
 ## Despliegue gratis
 - **Bot (Render, plan free, webhook):** New → Blueprint → este repo (usa `render.yaml`). Rellenar las variables marcadas. Tras 15 min sin uso se duerme y Telegram lo despierta (la primera respuesta tarda ~30-60 s).
 - **Aviso 20:35 (GitHub Actions):** Settings → Secrets → `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `ESIOS_TOKEN`. Prueba manual: Actions → aviso-diario → Run workflow.
+
+## Menú del bot
+`/menu` abre un menú con botones: cargar el coche (asistente paso a paso: batería actual → objetivo → día → hora), precios, horas más baratas ahora, mejor hora para electrodomésticos y ajustes.
