@@ -1,0 +1,20 @@
+name: aviso-diario
+on:
+  schedule:
+    - cron: "36 18 * * *"   # 20:36 en verano (CEST)
+    - cron: "36 19 * * *"   # 20:36 en invierno (CET)
+  workflow_dispatch:
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ESIOS_TOKEN: ${{ secrets.ESIOS_TOKEN }}
+      FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - run: python -m teslabot.daily

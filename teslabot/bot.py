@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -81,16 +82,6 @@ async def cargar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 
-async def daily_prices(ctx: ContextTypes.DEFAULT_TYPE):
-    """20:35 — los precios de mañana ya están publicados."""
-    prices = fetch_prices(cfg.esios_token, _now().date() + timedelta(days=1), days=1)
-    if not prices:
-        return
-    cheap = sorted(prices.items(), key=lambda x: x[1])[:6]
-    await ctx.bot.send_message(cfg.chat_id, "⚡ Mañana, horas más baratas: " +
-                               _fmt_hours(sorted(h for h, _ in cheap)))
-
-
 def main():
     global cfg
     logging.basicConfig(level=logging.INFO)
@@ -100,8 +91,13 @@ def main():
     app.add_handler(CommandHandler(["start", "help"], start, only_me))
     app.add_handler(CommandHandler("precios", precios, only_me))
     app.add_handler(CommandHandler("cargar", cargar, only_me))
-    app.job_queue.run_daily(daily_prices, time(20, 35, tzinfo=ZoneInfo(TZ)))
-    app.run_polling()
+    url = os.getenv("RENDER_EXTERNAL_URL")
+    if url:  # Render gratis: webhook, el servicio se duerme y Telegram lo despierta
+        app.run_webhook(listen="0.0.0.0", port=int(os.getenv("PORT", "10000")),
+                        url_path=cfg.webhook_secret, secret_token=cfg.webhook_secret,
+                        webhook_url=f"{url}/{cfg.webhook_secret}")
+    else:
+        app.run_polling()
 
 
 if __name__ == "__main__":

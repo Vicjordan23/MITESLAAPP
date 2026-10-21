@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: miteslaapp
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m teslabot.bot
+    envVars:
+      - { key: PYTHON_VERSION, value: "3.12.7" }
+      - { key: TELEGRAM_TOKEN, sync: false }
+      - { key: TELEGRAM_CHAT_ID, sync: false }
+      - { key: ESIOS_TOKEN, sync: false }
+      - { key: WEBHOOK_SECRET, sync: false }
+      - { key: BATTERY_KWH, value: "60" }
+      - { key: CHARGER_KW, value: "7.4" }

@@ -12,6 +12,7 @@ class Config:
     battery_kwh: float
     charger_kw: float
     efficiency: float
+    webhook_secret: str = ""
 
 
 def load() -> Config:
@@ -22,4 +23,5 @@ def load() -> Config:
         battery_kwh=float(os.getenv("BATTERY_KWH", "60")),
         charger_kw=float(os.getenv("CHARGER_KW", "7.4")),
         efficiency=float(os.getenv("CHARGE_EFFICIENCY", "0.9")),
+        webhook_secret=os.getenv("WEBHOOK_SECRET", ""),
     )
