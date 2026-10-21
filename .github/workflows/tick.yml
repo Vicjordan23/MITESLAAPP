@@ -1,0 +1,25 @@
+name: control-horario
+# Cada hora (minuto 55): enciende/pausa el Wallbox o avisa de conectar/desconectar según la carga programada.
+# GitHub puede retrasar los cron unos minutos.
+on:
+  schedule:
+    - cron: "55 * * * *"
+  workflow_dispatch:
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ESIOS_TOKEN: ${{ secrets.ESIOS_TOKEN }}
+      WALLBOX_USER: ${{ secrets.WALLBOX_USER }}
+      WALLBOX_PASSWORD: ${{ secrets.WALLBOX_PASSWORD }}
+      WALLBOX_ID: ${{ secrets.WALLBOX_ID }}
+      TESSIE_TOKEN: ${{ secrets.TESSIE_TOKEN }}
+      TESSIE_VIN: ${{ secrets.TESSIE_VIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - run: python -m teslabot.tick

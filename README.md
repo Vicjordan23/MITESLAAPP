@@ -21,3 +21,12 @@ cp .env.example .env   # rellenar y exportar las variables
 
 ## Menú del bot
 `/menu` abre un menú con botones: cargar el coche (asistente paso a paso: batería actual → objetivo → día → hora), precios, horas más baratas ahora, mejor hora para electrodomésticos y ajustes.
+
+## Funciones
+- **Ajustes desde Telegram** (⚙️): batería, cargador, potencia contratada, reserva de casa, consumo y umbrales de aviso. Se guardan en un mensaje fijado del propio chat (no lo borres ni lo desfijes), así sobreviven a reinicios de Render sin base de datos.
+- **Cargas programadas** (📌): el bot las guarda y las replanifica a las 20:35 si se programaron antes de conocer los precios de mañana. Cada hora (minuto 55) `teslabot.tick` en GitHub Actions te avisa de conectar/desconectar o, si hay Wallbox configurado, lo enciende/pausa.
+- **Avisos 20:35**: resumen de mañana + 🟢 día barato / 🔴 día caro según tus umbrales.
+- **Estado del coche** (opcional, Tessie) y **Wallbox** (opcional, myWallbox): sin verificar con hardware real todavía.
+- **Resumen mensual**: estimado a partir de las cargas programadas.
+
+Secrets de GitHub para `control-horario`: los mismos que `aviso-diario` y, opcionalmente, `WALLBOX_USER`, `WALLBOX_PASSWORD`, `WALLBOX_ID`, `TESSIE_TOKEN`, `TESSIE_VIN`.

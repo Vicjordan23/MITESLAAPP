@@ -16,3 +16,9 @@ services:
       - { key: CONTRACTED_KW, value: "4.4" }
       - { key: HOUSE_KW, value: "1.0" }
       - { key: KWH_PER_100KM, value: "15" }
+      # Opcionales (cuando tengas coche/cargador); si no los rellenas, esas funciones quedan desactivadas
+      - { key: TESSIE_TOKEN, sync: false }
+      - { key: TESSIE_VIN, sync: false }
+      - { key: WALLBOX_USER, sync: false }
+      - { key: WALLBOX_PASSWORD, sync: false }
+      - { key: WALLBOX_ID, sync: false }
