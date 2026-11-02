@@ -30,3 +30,5 @@ cp .env.example .env   # rellenar y exportar las variables
 - **Resumen mensual**: estimado a partir de las cargas programadas.
 
 Secrets de GitHub para `control-horario`: los mismos que `aviso-diario` y, opcionalmente, `WALLBOX_USER`, `WALLBOX_PASSWORD`, `WALLBOX_ID`, `TESSIE_TOKEN`, `TESSIE_VIN`.
+
+- **Mantener despierto el bot:** `.github/workflows/keepalive.yml` visita el servicio de Render cada 10 min (GitHub desactiva los cron de repos públicos tras 60 días sin actividad: basta con un commit o con reactivarlo en Actions).
