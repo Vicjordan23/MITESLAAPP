@@ -167,7 +167,10 @@ DIAS_MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "ago
 async def _show(update: Update, text: str, kb):
     q = update.callback_query
     if q:
-        await q.answer()
+        try:
+            await q.answer()
+        except Exception:  # con Render recién despertado la pulsación puede haber caducado: seguimos igualmente
+            log.warning("callback caducado, edito el mensaje igualmente")
         await q.edit_message_text(text, reply_markup=kb)
     else:
         await update.message.reply_text(text, reply_markup=kb)
@@ -383,6 +386,8 @@ async def post_init(app: Application):
 def main():
     global base_cfg, cfg
     logging.basicConfig(level=logging.INFO)
+    for noisy in ("httpx", "httpcore"):  # sus INFO imprimen la URL con el token del bot
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     base_cfg = cfg = cfg_mod.load()
     app = Application.builder().token(cfg.telegram_token).post_init(post_init).build()
     only_me = filters.Chat(cfg.chat_id)
@@ -391,6 +396,7 @@ def main():
     app.add_handler(CommandHandler("precios", precios, only_me))
     app.add_handler(CommandHandler("cargar", cargar, only_me))
     app.add_handler(CallbackQueryHandler(on_button))
+    app.add_error_handler(lambda u, c: log.error("error no controlado", exc_info=c.error))
     url = os.getenv("RENDER_EXTERNAL_URL")
     if url:  # Render gratis: webhook, el servicio se duerme y Telegram lo despierta
         app.run_webhook(listen="0.0.0.0", port=int(os.getenv("PORT", "10000")),
